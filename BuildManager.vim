@@ -5,12 +5,13 @@
 "
 
 function ManageBuild(dir, ...)
-    if a:0 == 1
+    let string = a:dir
+    if a:0 > 0
         if match(a:1, "-r") != -1
-            let a:dir = "-r " . a:dir
+            let string = "-r " . string
         endif
     endif
-    execute "!python ~/.vim/plugin/BuildManager/BuildManager.py " . " " . a:dir
+    execute "!python ~/.vim/plugin/BuildManager/BuildManager.py " . string
 endfunction
 
 com -nargs=* Build call ManageBuild(getcwd(), <f-args>)

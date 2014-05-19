@@ -28,6 +28,7 @@ Options:
 import os
 from docopt import docopt
 from HeaderChecker import updateHeaders
+from pprint import pprint
 
 
 def genMakeString(headerDiff):
@@ -59,6 +60,9 @@ def main():
     os.system(s)
     if (args['--run']):
         os.system("make run")
+    else:
+        pprint(args)
+        print("No run command found. Finishing.")
 
 
 if __name__ == "__main__":
