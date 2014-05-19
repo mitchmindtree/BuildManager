@@ -16,3 +16,5 @@ endfunction
 
 com -nargs=* Build call ManageBuild(getcwd(), <f-args>)
     
+" Map call to '\r'
+nnoremap <Leader>r :Build -r<CR>
