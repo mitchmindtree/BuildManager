@@ -28,7 +28,6 @@ Options:
 import os
 from docopt import docopt
 from HeaderChecker import updateHeaders
-from pprint import pprint
 
 
 def genMakeString(headerDiff):
