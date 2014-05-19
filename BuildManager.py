@@ -59,10 +59,13 @@ def main():
     s = genMakeString(headerDiff)
     os.system(s)
     if (args['--run']):
-        os.system("make run")
+        print("Running dis business...")
+        try:
+            os.system("""osascript -e 'tell application "Terminal" to activate' -e 'tell application "System Events" to tell process "Terminal" to keystroke "t" using command down' -e 'tell application "Terminal" to do script "make run" in selected tab of the front window'""")
+        except:
+            os.system("make run")
     else:
-        pprint(args)
-        print("No run command found. Finishing.")
+        print("No run command found, finishing up :-)")
 
 
 if __name__ == "__main__":
