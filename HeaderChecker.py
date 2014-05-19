@@ -11,8 +11,6 @@ A small python script to check whether any new header files have been added
 to a C++ src directory. If they have, it will update the checkedHeaders.json
 accordingly.
 
-    - Checks for the path and prepares it for use.
-
 Usage:
     HeaderChecker.py [-h | --help] [-v | --version]
     HeaderChecker.py [-b | --build] <path>
