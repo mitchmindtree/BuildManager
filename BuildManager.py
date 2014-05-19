@@ -53,7 +53,7 @@ def cleanPath(path):
 
 def main():
     args = docopt(__doc__, version='Header Checker -- SUPER RADICAL EDITION')
-    path = cleanPath(args['<path>'])
+    path = cleanPath(args['<makePath>'])
     headerDiff = updateHeaders(path)
     s = genMakeString(headerDiff)
     os.system(s)

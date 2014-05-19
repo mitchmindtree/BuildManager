@@ -48,11 +48,11 @@ def getCheckedHeaders(path):
 def findHeaders(path):
     '''Search directory recursively and find all headers.'''
     headerList = [os.path.join(dp, f) for dp, dn, filenames in os.walk(path) for f in filenames if os.path.splitext(f)[1] == '.h']
-    print 'Number of wavs found in', directory, '=', len(headerList)
+    print('Number of headers found in ' + path + ' = ' + str(len(headerList)))
     return headerList
 
 
-def writeNewChecked(headers):
+def writeNewChecked(path, headers):
     '''Write the refreshed list of headers to the json file.'''
     f = open(getJsonFP(path), 'w')
     json.dump(headers, f)
@@ -71,6 +71,10 @@ def updateHeaders(path, build=False):
     headers = findHeaders(path)
     if headers is None:
         print("Couldn't find any headers in that path I'm afraid.")
+    if not os.path.exists(getJsonFP(path)) and headers is not None:
+        print("Couldn't find " + getJsonFP(path) + " -- Making file now.")
+        writeNewChecked(path, headers)
+        return True
     checked = getCheckedHeaders(path)
     if checked is None:
         writeNewChecked(headers) 
