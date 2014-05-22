@@ -57,11 +57,9 @@ def runInNewTmuxWindow(path):
     serv = tmuxp.Server()
     sesh = serv.getById('$0')
     win = sesh.findWhere({"window_name" : "RUN_JEN"})
-    if win:
-        pane = win.attached_pane()
-    else:
+    if not win:
         win = sesh.new_window(attach=True, window_name="RUN_JEN")
-        pane = win.attached_pane()
+    pane = win.attached_pane()
     pane.send_keys('cd '+path, enter=True)
     pane.send_keys('make run', enter=True)
 
