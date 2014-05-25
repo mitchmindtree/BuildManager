@@ -100,15 +100,19 @@ def runInNewTab():
 
 
 def findOwner(path):
-    return pwd.getpwuid(os.stat(path).st_uid).pw_name
+    try:
+        return pwd.getpwuid(os.stat(path).st_uid).pw_name
+    except Exception, e:
+        return getpass.getuser()
 
 
 def arePermissionsOk(user, path):
     for p in os.listdir(path):
-        if os.path.isdir(p):
-            if not checkPermissions(user, path):
+        pj = os.path.join(path, p)
+        if os.path.isdir(pj):
+            if not arePermissionsOk(user, pj):
                 return False
-        if user != findOwner(path):
+        if user != findOwner(pj):
             return False
     return True
 
@@ -126,13 +130,19 @@ def checkPermissions(user, path):
     print("Checking permissions...")
     if not arePermissionsOk(user, path):
         print("BuildManager has found files owned by someone other than the current user. This may cause problems during the Makefile build process. BuildManager will fix ownership of all files in the Makefile directory for you.")
-        #pw = getpass.getpass("Please enter administrator password:")
         try:
             requestChown(user, path)
             print("Great success! Permissions changed.")
         except Exception, e:
-            print("BuildManager failed to change permissions... here's the error we got:")
+            print("BuildManager failed to fix ownership. Here's the error we got:")
             print(str(e))
+            try:
+                print("Will now try to fix permissions via OS chown command. It will likely require your permission.")
+                os.system("sudo chown -R "+user+" "+path)
+                print("Great success! Permissions changed.")
+            except Exception, e:
+                print("Failed to fix permissions:")
+                print(str(e))
     else:
         print("Permissions OK.")
 
@@ -142,11 +152,11 @@ def main():
     args = docopt(__doc__, version='Build Manager -- SUPER RADICAL EDITION')
     path = cleanPath(args['<makePath>'])
     path = getMakePath(path)
+    origin = os.getcwd()
+    os.chdir(path)
     checkPermissions(getpass.getuser(), path)
     headerDiff = updateHeaders(path)
     s = genMakeString(headerDiff)
-    origin = os.getcwd()
-    os.chdir(path)
     os.system(s)
     os.chdir(origin)
     if (args['--run']):
