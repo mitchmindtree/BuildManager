@@ -25,11 +25,37 @@ Options:
 '''
 
 
-import os
+import os, getpass, tmuxp, pwd, grp, ntpath
 from docopt import docopt
 from HeaderChecker import updateHeaders
 from pprint import pprint
-import tmuxp
+
+
+def isMakefileHere(path):
+    if os.path.isfile(os.path.join(path, "Makefile")):
+        return True
+    elif os.path.isfile(os.path.join(path, "makefile")):
+        return True
+    else:
+        return False
+
+
+def getMakePath(path):
+    p = path
+    try:
+        print("Attempting to find Makefile path...")
+        for i in range(10):
+            if isMakefileHere(p):
+                print("Makefile path found: " + p)
+                return p
+            else:
+                p = os.path.dirname(p)
+    except Exception, e:
+        print("BuildManager couldn't find the Makefile path... Here's the error:")
+        print(str(e))
+        return path
+    print("BuildManager couldn't find the Makefile path. Will try original path: " + path)
+    return path
 
 
 def genMakeString(headerDiff):
@@ -53,12 +79,17 @@ def cleanPath(path):
         raise Exception("I can't find the given path! You're not leading me astray... are you?")
 
 
+def pathLeaf(path):
+    head, tail = ntpath.split(path)
+    return tail or ntpath.basename(head)
+
+
 def runInNewTmuxWindow(path):
     serv = tmuxp.Server()
     sesh = serv.getById('$0')
-    win = sesh.findWhere({"window_name" : "RUN_JEN"})
+    win = sesh.findWhere({"window_name" : "RUN_"+pathLeaf(path)})
     if not win:
-        win = sesh.new_window(attach=True, window_name="RUN_JEN")
+        win = sesh.new_window(attach=True, window_name="RUN_"+pathLeaf(path))
     pane = win.attached_pane()
     pane.send_keys('cd '+path, enter=True)
     pane.send_keys('make run', enter=True)
@@ -68,24 +99,70 @@ def runInNewTab():
     os.system("""osascript -e 'tell application "Terminal" to activate' -e 'tell application "System Events" to tell process "Terminal" to keystroke "t" using command down' -e 'tell application "Terminal" to do script "make run" in selected tab of the front window'""")
 
 
+def findOwner(path):
+    return pwd.getpwuid(os.stat(path).st_uid).pw_name
+
+
+def arePermissionsOk(user, path):
+    for p in os.listdir(path):
+        if os.path.isdir(p):
+            if not checkPermissions(user, path):
+                return False
+        if user != findOwner(path):
+            return False
+    return True
+
+
+def requestChown(user, path):
+    uid = pwd.getpwnam(user).pw_uid
+    for root, dirs, files in os.walk(path):
+        for d in dirs:
+            os.chown(os.path.join(root, d), uid, -1)
+        for f in files:
+            os.chown(os.path.join(root, f), uid, -1)
+
+
+def checkPermissions(user, path):
+    print("Checking permissions...")
+    if not arePermissionsOk(user, path):
+        print("BuildManager has found files owned by someone other than the current user. This may cause problems during the Makefile build process. BuildManager will fix ownership of all files in the Makefile directory for you.")
+        #pw = getpass.getpass("Please enter administrator password:")
+        try:
+            requestChown(user, path)
+            print("Great success! Permissions changed.")
+        except Exception, e:
+            print("BuildManager failed to change permissions... here's the error we got:")
+            print(str(e))
+    else:
+        print("Permissions OK.")
+
+
+
 def main():
     args = docopt(__doc__, version='Build Manager -- SUPER RADICAL EDITION')
     path = cleanPath(args['<makePath>'])
+    path = getMakePath(path)
+    checkPermissions(getpass.getuser(), path)
     headerDiff = updateHeaders(path)
     s = genMakeString(headerDiff)
+    origin = os.getcwd()
+    os.chdir(path)
     os.system(s)
+    os.chdir(origin)
     if (args['--run']):
-        print("Running dis business...")
         try:
+            print("Attempting to run in new Tmux window...")
             runInNewTmuxWindow(path)
         except Exception, e:
-            msg = str(e) + "\nNow trying to open in new tab instead..."
-            print(msg)
+            print("Failed to run in new Tmux window:")
+            print(str(e))
+            print("Now trying to open in new tab instead...")
             try:
                 runInNewTab()
             except Exception, e:
-                msg = str(e) + "\nNow just going to run in Vim window instead..."
-                print(msg)
+                print("Failed to run in new Terminal tab:")
+                print(str(e))
+                print("Now just going to run in Vim window instead...")
                 os.system("make run")
     else:
         print("No run command found, finishing up :-)")

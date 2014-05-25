@@ -11,7 +11,7 @@ function ManageBuild(dir, ...)
             let string = "-r " . string
         endif
     endif
-    silent "!python ~/.vim/plugin/BuildManager/BuildManager.py " . string
+    execute "!python ~/.vim/plugin/BuildManager/BuildManager.py " . string
 endfunction
 
 com -nargs=* Build call ManageBuild(getcwd(), <f-args>)
