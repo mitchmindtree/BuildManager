@@ -88,11 +88,15 @@ def runInNewTmuxWindow(path):
     serv = tmuxp.Server()
     sesh = serv.getById('$0')
     win = sesh.findWhere({"window_name" : "RUN_"+pathLeaf(path)})
+    winname = "RUN_"+pathLeaf(path)
     if not win:
-        win = sesh.new_window(attach=True, window_name="RUN_"+pathLeaf(path))
+        win = sesh.new_window(attach=True, window_name=winname)
+    else:
+        win = sesh.select_window(winname)
     pane = win.attached_pane()
     pane.send_keys('cd '+path, enter=True)
     pane.send_keys('make run', enter=True)
+    print("Running the Makefile found in "+path+" in window "+winname)
 
 
 def runInNewTab():
@@ -145,7 +149,6 @@ def checkPermissions(user, path):
                 print(str(e))
     else:
         print("Permissions OK.")
-
 
 
 def main():
