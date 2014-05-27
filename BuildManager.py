@@ -15,12 +15,13 @@ So far it...
 
 Usage:
     BuildManager.py [-h | --help] [-v | --version]
-    BuildManager.py [-r | --run] <makePath>
+    BuildManager.py [--lang=<ext>] [-r | --run] <path>
 
 Options:
     -h --help           Show this screen.
     -v --version        Show version.
     -r --run            Run the program following building.
+    --lang=<ext>        Language with extension.
 
 '''
 
@@ -40,7 +41,7 @@ def isMakefileHere(path):
         return False
 
 
-def getMakePath(path):
+def getCppMakePath(path):
     p = path
     try:
         print("Attempting to find Makefile path...")
@@ -56,6 +57,58 @@ def getMakePath(path):
         return path
     print("BuildManager couldn't find the Makefile path. Will try original path: " + path)
     return path
+
+
+def getRustMainFile(path):
+    files = [f for f in os.listdir(path) if f.endswith(".rs")]
+    if any(f for f in files if open(os.path.join(path, f), 'r').read().find("fn main(") != -1):
+        return f
+    else:
+        return None
+
+
+def getRustMakePath(path):
+    p = path
+    try:
+        print("Attempting to find rust main file path...")
+        for i in range(10):
+            rustmain = getRustMainFile(p)
+            if rustmain is not None:
+                print("Rust main file found: " + rustmain)
+                return os.path.join(p, rustmain)
+            else:
+                p = os.path.dirname(p)
+    except Exception, e:
+        print("BuildManager couldn't find the Makefile path... Here's the error:")
+        print(str(e))
+        return path
+    print("BuildManager couldn't find the Makefile path. Will try original path: " + path)
+    return path
+
+
+def getMakePath(lang, path):
+    if lang == "cpp":
+        return getCppMakePath(path)
+    elif lang == "rust":
+        return getRustMakePath(path)
+
+
+def buildCpp(path): 
+    print("Now attempting to build makefile.")
+    origin = os.getcwd()
+    os.chdir(path)
+    headerDiff = updateHeaders(path)
+    s = genMakeString(headerDiff)
+    os.system(s)
+    os.chdir(origin)
+
+
+def buildRust(path):
+    print("Now attempting to build rust file.")
+    origin = os.getcwd()
+    os.chdir(os.path.dirname(path))
+    os.system("rustc "+path)
+    os.chdir(origin)
 
 
 def genMakeString(headerDiff):
@@ -84,9 +137,22 @@ def pathLeaf(path):
     return tail or ntpath.basename(head)
 
 
-def runInNewTmuxWindow(path):
+def runCpp(path, pane, winname):
+    pane.send_keys('make run', enter=True)
+    print("Running the Makefile found in "+path+" in window "+winname)
+
+
+def runRust(rustmain, pane, winname):
+    pane.send_keys('./'+os.path.splitext(rustmain)[0])
+    print("Running the Rust main file "+rustmain+" in window"+winname)
+
+
+def runInNewTmuxWindow(lang, path):
     serv = tmuxp.Server()
     sesh = serv.getById('$0')
+    if lang == "rust":
+        rustmain = pathLeaf(path)
+        path = os.path.dirname(path)
     win = sesh.findWhere({"window_name" : "RUN_"+pathLeaf(path)})
     winname = "RUN_"+pathLeaf(path)
     if not win:
@@ -95,8 +161,11 @@ def runInNewTmuxWindow(path):
         win = sesh.select_window(winname)
     pane = win.attached_pane()
     pane.send_keys('cd '+path, enter=True)
-    pane.send_keys('make run', enter=True)
-    print("Running the Makefile found in "+path+" in window "+winname)
+    if lang == "cpp":
+        runCpp(path, pane, winname)
+    elif lang == "rust":
+        path = os.path.join(path, rustmain)
+        runRust(rustmain, pane, winname)
 
 
 def runInNewTab():
@@ -151,21 +220,38 @@ def checkPermissions(user, path):
         print("Permissions OK.")
 
 
+def getLanguage(ext):
+    if ext == ".cpp" or ext == ".h" or ext == ".hpp":
+        return "cpp"
+    elif ext == ".rs" or ext == "rust":
+        return "rust"
+    else:
+        print("ext = "+ext)
+        print("Entered language not found - cpp will be assumed.") # Should automatically find language.
+        return "cpp"
+
+
 def main():
     args = docopt(__doc__, version='Build Manager -- SUPER RADICAL EDITION')
-    path = cleanPath(args['<makePath>'])
-    path = getMakePath(path)
+    lang = getLanguage(args.get('--lang'))
+    path = cleanPath(args.get('<path>'))
+    path = getMakePath(lang, path)
     origin = os.getcwd()
-    os.chdir(path)
-    checkPermissions(getpass.getuser(), path)
-    headerDiff = updateHeaders(path)
-    s = genMakeString(headerDiff)
-    os.system(s)
+    if lang == "cpp":
+        os.chdir(path)
+        checkPermissions(getpass.getuser(), path)
+    elif lang == "rust":
+        os.chdir(os.path.dirname(path))
+        checkPermissions(getpass.getuser(), os.path.dirname(path))
     os.chdir(origin)
+    if lang == "cpp":
+        buildCpp(path)
+    elif lang == "rust":
+        buildRust(path)
     if (args['--run']):
         try:
             print("Attempting to run in new Tmux window...")
-            runInNewTmuxWindow(path)
+            runInNewTmuxWindow(lang, path)
         except Exception, e:
             print("Failed to run in new Tmux window:")
             print(str(e))
